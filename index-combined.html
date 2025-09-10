@@ -40,22 +40,32 @@
     </main>
 
     <script>
-      // Generate 100 random elements
+      // Generate 500 random elements filling the viewport
       const gallery = document.querySelector('.demo-combined__gallery');
-      for (let i = 0; i < 100; i++) {
+      
+      // Calculate grid dimensions to fill viewport
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Calculate how many elements fit in each direction with 5px gaps
+      const elementWidth = 128;
+      const elementHeight = 192;
+      const gap = 5;
+      
+      const cols = Math.floor((viewportWidth + gap) / (elementWidth + gap));
+      const rows = Math.ceil(500 / cols); // Ensure we have at least 500 items
+      
+      // Update gallery container size
+      gallery.style.width = (cols * (elementWidth + gap) - gap) + 'px';
+      gallery.style.height = (rows * (elementHeight + gap) - gap) + 'px';
+      
+      for (let i = 0; i < 500; i++) {
         const figure = document.createElement('figure');
         figure.className = 'demo-combined__gallery__figure';
         
-        // Position elements in an evenly spaced grid
-        const cols = 10;
-        const rows = 10;
+        // Position elements in grid
         const col = i % cols;
         const row = Math.floor(i / cols);
-        
-        // Evenly spaced with 5px gaps
-        const elementWidth = 128;
-        const elementHeight = 192;
-        const gap = 5;
         
         const x = col * (elementWidth + gap);
         const y = row * (elementHeight + gap);
@@ -63,8 +73,8 @@
         figure.style.position = 'absolute';
         figure.style.left = x + 'px';
         figure.style.top = y + 'px';
-        figure.style.width = '128px';
-        figure.style.height = '192px';
+        figure.style.width = elementWidth + 'px';
+        figure.style.height = elementHeight + 'px';
         
         // Create img element with transparent pixel (color will be generated in WebGL)
         const img = document.createElement('img');

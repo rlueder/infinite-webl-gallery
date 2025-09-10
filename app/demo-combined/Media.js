@@ -45,7 +45,7 @@ export default class {
         uImageSizes: { value: [128, 192] }, // Standard size
         uViewportSizes: { value: [this.viewport.width, this.viewport.height] },
         uStrength: { value: 0 },
-        uColor: { value: [...randomColor, 1.0] } // Add random color uniform
+        uColor: { value: [randomColor[0]/255, randomColor[1]/255, randomColor[2]/255, 1.0] } // Normalize RGB to 0-1 range
       },
       transparent: true
     })
@@ -107,14 +107,15 @@ export default class {
     this.updateX()
     this.updateY()
 
+    // Always update plane sizes uniform after scaling
     this.plane.program.uniforms.uPlaneSizes.value = [this.plane.scale.x, this.plane.scale.y]
   }
 
   updateScale () {
     // Fixed size: 128x192 pixels converted to viewport units
-    const aspectRatio = 128 / 192
+    // All elements should have exactly the same size regardless of HTML bounds
+    const targetWidth = (128 / this.screen.width) * this.viewport.width
     const targetHeight = (192 / this.screen.height) * this.viewport.height
-    const targetWidth = targetHeight * aspectRatio
     
     this.plane.scale.x = targetWidth
     this.plane.scale.y = targetHeight
@@ -133,16 +134,24 @@ export default class {
     this.updateX(scroll.current.x)
     this.updateY(scroll.current.y)
 
+    // Ensure plane sizes uniform is always correct
+    this.plane.program.uniforms.uPlaneSizes.value = [this.plane.scale.x, this.plane.scale.y]
+
     // Handle wrapping for both X and Y axes
     const planeOffsetX = this.plane.scale.x / 2
     const planeOffsetY = this.plane.scale.y / 2
     const viewportOffsetX = this.viewport.width / 2
     const viewportOffsetY = this.viewport.height / 2
 
-    this.isBeforeX = this.plane.position.x + planeOffsetX < -viewportOffsetX
-    this.isAfterX = this.plane.position.x - planeOffsetX > viewportOffsetX
-    this.isBeforeY = this.plane.position.y + planeOffsetY < -viewportOffsetY
-    this.isAfterY = this.plane.position.y - planeOffsetY > viewportOffsetY
+    // Trigger wrapping earlier - when element starts to exit viewport, not when completely gone
+    // Add a buffer equal to one element size to ensure seamless infinite scrolling
+    const bufferX = this.plane.scale.x
+    const bufferY = this.plane.scale.y
+
+    this.isBeforeX = this.plane.position.x + planeOffsetX < -viewportOffsetX + bufferX
+    this.isAfterX = this.plane.position.x - planeOffsetX > viewportOffsetX - bufferX
+    this.isBeforeY = this.plane.position.y + planeOffsetY < -viewportOffsetY + bufferY
+    this.isAfterY = this.plane.position.y - planeOffsetY > viewportOffsetY - bufferY
 
     // X-axis wrapping
     if (direction.x === 'right' && this.isBeforeX) {

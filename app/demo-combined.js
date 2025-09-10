@@ -166,8 +166,23 @@ export default class App {
     this.resolution.value.set(this.gl.canvas.width, this.gl.canvas.height)
 
     this.galleryBounds = this.gallery.getBoundingClientRect()
-    this.galleryWidth = this.viewport.width * this.galleryBounds.width / this.screen.width
-    this.galleryHeight = this.viewport.height * this.galleryBounds.height / this.screen.height
+    
+    // Calculate dynamic grid dimensions based on actual gallery size
+    // The gallery dimensions are set by the HTML script based on viewport
+    const elementWidth = 128
+    const elementHeight = 192
+    const gap = 5
+    
+    // Calculate actual columns and rows from gallery bounds
+    const actualCols = Math.floor((this.galleryBounds.width + gap) / (elementWidth + gap))
+    const actualRows = Math.floor((this.galleryBounds.height + gap) / (elementHeight + gap))
+    
+    // For infinite wrapping, we need the full grid cycle including the gap to the next cycle
+    const fullGridWidth = actualCols * (elementWidth + gap)
+    const fullGridHeight = actualRows * (elementHeight + gap)
+    
+    this.galleryWidth = this.viewport.width * fullGridWidth / this.screen.width
+    this.galleryHeight = this.viewport.height * fullGridHeight / this.screen.height
 
     if (this.medias) {
       this.medias.forEach(media => media.onResize({
