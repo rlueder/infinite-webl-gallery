@@ -11,13 +11,19 @@ uniform mat4 projectionMatrix;
 
 uniform float uStrength;
 uniform vec2 uViewportSizes;
+uniform float uHoverScale;
 
 varying vec2 vUv;
 
 void main() {
-  vec4 newPosition = modelViewMatrix * vec4(position, 1.0);
+  vec4 newPosition = modelViewMatrix * vec4(position * uHoverScale, 1.0);
 
   newPosition.z += -abs(sin(newPosition.x / uViewportSizes.x * PI + PI / 2.0) * uStrength);
+  
+  // Bring hovered elements forward in Z-space (closer to camera)
+  // When uHoverScale > 1.0, move element forward by 1.0 unit
+  float hoverDepth = (uHoverScale - 1.0) * 3.0; // Amplify the effect
+  newPosition.z += hoverDepth;
 
   vUv = uv;
 

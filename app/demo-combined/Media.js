@@ -17,6 +17,14 @@ export default class {
     this.galleryWidth = galleryWidth
     this.galleryHeight = galleryHeight
 
+    // Hover state management
+    this.hover = {
+      isHovered: false,
+      scale: 1.0,
+      targetScale: 1.0,
+      ease: 0.1
+    }
+
     this.createMesh()
     this.createBounds()
 
@@ -45,7 +53,8 @@ export default class {
         uImageSizes: { value: [128, 192] }, // Standard size
         uViewportSizes: { value: [this.viewport.width, this.viewport.height] },
         uStrength: { value: 0 },
-        uColor: { value: [randomColor[0]/255, randomColor[1]/255, randomColor[2]/255, 1.0] } // Normalize RGB to 0-1 range
+        uColor: { value: [randomColor[0]/255, randomColor[1]/255, randomColor[2]/255, 1.0] }, // Normalize RGB to 0-1 range
+        uHoverScale: { value: 1.0 } // Hover scaling factor
       },
       transparent: true
     })
@@ -129,10 +138,11 @@ export default class {
     this.plane.position.y = ((this.viewport.height / 2) - (this.plane.scale.y / 2) - ((this.bounds.top - y) / this.screen.height) * this.viewport.height) - this.extra.y
   }
 
-  update (scroll, direction) {
+  update (scroll, direction, mouse) {
     this.updateScale()
     this.updateX(scroll.current.x)
     this.updateY(scroll.current.y)
+    this.updateHover(mouse, scroll)
 
     // Ensure plane sizes uniform is always correct
     this.plane.program.uniforms.uPlaneSizes.value = [this.plane.scale.x, this.plane.scale.y]
@@ -183,6 +193,50 @@ export default class {
     const strengthX = ((scroll.current.x - scroll.last.x) / this.screen.width) * 5
     const strengthY = ((scroll.current.y - scroll.last.y) / this.screen.height) * 5
     this.plane.program.uniforms.uStrength.value = Math.sqrt(strengthX * strengthX + strengthY * strengthY)
+  }
+
+  /**
+   * Hover Effects.
+   */
+  checkMouseHover (mouse, scroll) {
+    if (!mouse || !scroll) return false
+
+    // Calculate the actual visual position accounting for scroll and infinite wrapping
+    const visualX = this.bounds.left - scroll.current.x - this.extra.x
+    const visualY = this.bounds.top - scroll.current.y - this.extra.y
+
+    // Calculate element center in screen space
+    const centerX = visualX + (this.bounds.width / 2)
+    const centerY = visualY + (this.bounds.height / 2)
+
+    // Define hover area around the center
+    const halfWidth = this.bounds.width / 2
+    const halfHeight = this.bounds.height / 2
+
+    // Check if mouse is within hover area centered on element
+    return mouse.x >= centerX - halfWidth && 
+           mouse.x <= centerX + halfWidth && 
+           mouse.y >= centerY - halfHeight && 
+           mouse.y <= centerY + halfHeight
+  }
+
+  updateHover (mouse, scroll) {
+    // Check if mouse is hovering over this element
+    const isHovering = this.checkMouseHover(mouse, scroll)
+    
+    if (isHovering && !this.hover.isHovered) {
+      this.hover.isHovered = true
+      this.hover.targetScale = 1.3 // Scale up by 30%
+    } else if (!isHovering && this.hover.isHovered) {
+      this.hover.isHovered = false
+      this.hover.targetScale = 1.0 // Return to normal size
+    }
+
+    // Smooth lerp animation for hover scale
+    this.hover.scale += (this.hover.targetScale - this.hover.scale) * this.hover.ease
+    
+    // Update shader uniform
+    this.plane.program.uniforms.uHoverScale.value = this.hover.scale
   }
 
   /**

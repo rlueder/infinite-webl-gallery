@@ -18,6 +18,9 @@ export default class App {
     // Disable auto scroll
     this.speed = { x: 0, y: 0 }
 
+    // Mouse tracking for hover effects
+    this.mouse = { x: 0, y: 0 }
+
     this.createRenderer()
     this.createCamera()
     this.createScene()
@@ -210,7 +213,7 @@ export default class App {
     }
 
     if (this.medias) {
-      this.medias.forEach(media => media.update(this.scroll, this.direction))
+      this.medias.forEach(media => media.update(this.scroll, this.direction, this.mouse))
     }
 
     // Calculate strength for post-processing effect based on both axes
@@ -232,6 +235,11 @@ export default class App {
   /**
    * Listeners.
    */
+  onMouseMove (event) {
+    this.mouse.x = event.clientX
+    this.mouse.y = event.clientY
+  }
+
   addEventListeners () {
     window.addEventListener('resize', this.onResize.bind(this))
 
@@ -241,6 +249,9 @@ export default class App {
     window.addEventListener('mousedown', this.onTouchDown.bind(this))
     window.addEventListener('mousemove', this.onTouchMove.bind(this))
     window.addEventListener('mouseup', this.onTouchUp.bind(this))
+
+    // Add dedicated mouse move listener for hover effects
+    window.addEventListener('mousemove', this.onMouseMove.bind(this))
 
     window.addEventListener('touchstart', this.onTouchDown.bind(this))
     window.addEventListener('touchmove', this.onTouchMove.bind(this))
