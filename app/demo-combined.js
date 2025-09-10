@@ -1,40 +1,64 @@
 import { Renderer, Camera, Transform, Plane, Post, Vec2 } from 'ogl'
-import NormalizeWheel from 'normalize-wheel'
 
-import { lerp } from 'utils/math'
-
-import fragment from './demo-2/post.glsl'
-import Media from './demo-combined/Media'
+import { ELEMENT_CONFIG, ANIMATION_CONFIG } from './demo-combined/config/constants.js'
+import { Media } from './demo-combined/components/Media.js'
+import { ScrollManager } from './demo-combined/managers/ScrollManager.js'
+import { MouseManager } from './demo-combined/managers/MouseManager.js'
+import { ViewportManager } from './demo-combined/managers/ViewportManager.js'
+import { debugLogger, DebugPanel } from './demo-combined/utils/debug.js'
+import fragment from './demo-combined/fragment.glsl'
 
 export default class App {
   constructor () {
-    this.scroll = {
-      ease: 0.05,
-      current: { x: 0, y: 0 },
-      target: { x: 0, y: 0 },
-      last: { x: 0, y: 0 }
-    }
-
-    // Disable auto scroll
-    this.speed = { x: 0, y: 0 }
-
-    // Mouse tracking for hover effects
-    this.mouse = { x: 0, y: 0 }
-
+    // Initialize debug logging
+    this.initDebug()
+    
+    // Initialize managers
+    this.initManagers()
+    
+    // Create WebGL components
     this.createRenderer()
     this.createCamera()
     this.createScene()
-    this.createGallery()
     this.createPost()
-
-    this.onResize()
-
+    
+    // Create gallery
+    this.createGallery()
     this.createGeometry()
     this.createMedias()
-
+    
+    // Initialize event handlers
+    this.initEventHandlers()
+    
+    // Start the application
+    this.onResize()
     this.update()
+    
+    debugLogger.info('App', 'Application initialized successfully')
+  }
 
-    this.addEventListeners()
+  initDebug() {
+    // Enable debug logging in development
+    const isDebug = window.location.search.includes('debug=true')
+    debugLogger.setEnabled(isDebug)
+    
+    if (isDebug) {
+      this.debugPanel = new DebugPanel(debugLogger)
+      debugLogger.info('Debug', 'Debug panel initialized - Press Ctrl/Cmd+D to toggle')
+    }
+  }
+
+  initManagers() {
+    // Initialize scroll manager
+    this.scrollManager = new ScrollManager()
+    
+    // Initialize mouse manager
+    this.mouseManager = new MouseManager()
+    
+    // Initialize viewport manager
+    this.viewportManager = new ViewportManager()
+    
+    debugLogger.info('Managers', 'All managers initialized')
   }
 
   createGallery () {
@@ -92,165 +116,208 @@ export default class App {
         geometry: this.planeGeometry,
         gl: this.gl,
         scene: this.scene,
-        screen: this.screen,
-        viewport: this.viewport,
-        galleryWidth: this.galleryWidth,
-        galleryHeight: this.galleryHeight
+        screen: this.viewportManager.getScreen(),
+        viewport: this.viewportManager.getViewport(),
+        galleryWidth: this.viewportManager.getGalleryDimensions().width,
+        galleryHeight: this.viewportManager.getGalleryDimensions().height
       })
 
       return media
     })
+    
+    debugLogger.info('Media', `Created ${this.medias.length} media elements`)
   }
 
-  /**
-   * Events.
-   */
-  onTouchDown (event) {
-    this.isDown = true
-
-    this.scroll.position = { ...this.scroll.current }
-    this.start = {
-      x: event.touches ? event.touches[0].clientX : event.clientX,
-      y: event.touches ? event.touches[0].clientY : event.clientY
-    }
-  }
-
-  onTouchMove (event) {
-    // Always track mouse position for hover effects
-    this.mouse.x = event.touches ? event.touches[0].clientX : event.clientX
-    this.mouse.y = event.touches ? event.touches[0].clientY : event.clientY
-
-    if (!this.isDown) return
-
-    const x = this.mouse.x
-    const y = this.mouse.y
-    const distanceX = (this.start.x - x) * 2
-    const distanceY = (this.start.y - y) * 2
-
-    this.scroll.target.x = this.scroll.position.x + distanceX
-    this.scroll.target.y = this.scroll.position.y + distanceY
-  }
-
-  onTouchUp (event) {
-    this.isDown = false
-  }
-
-  onWheel (event) {
-    const normalized = NormalizeWheel(event)
-    const speedX = normalized.pixelX
-    const speedY = normalized.pixelY
-
-    this.scroll.target.x += speedX * 0.5
-    this.scroll.target.y += speedY * 0.5
+  initEventHandlers() {
+    // Initialize viewport manager with canvas
+    this.viewportManager.init(this.gl.canvas)
+    
+    // Initialize mouse manager with canvas
+    this.mouseManager.init(this.gl.canvas)
+    
+    // Set up mouse callbacks
+    this.mouseManager.setCallbacks({
+      onMove: (position) => {
+        // Mouse position updates are handled automatically
+      },
+      onDragStart: (dragData) => {
+        // Set initial scroll position for drag
+        dragData.initialScroll = this.scrollManager.getState().current
+        debugLogger.debug('Input', 'Drag started', dragData)
+      },
+      onDrag: (dragData) => {
+        this.scrollManager.handleDrag(
+          dragData.start.x,
+          dragData.start.y,
+          dragData.current.x,
+          dragData.current.y,
+          dragData.initialScroll
+        )
+      },
+      onDragEnd: (dragData) => {
+        debugLogger.debug('Input', 'Drag ended', dragData)
+      }
+    })
+    
+    // Set up viewport resize callback
+    this.viewportManager.onResize((state) => {
+      this.onResize(state)
+    })
+    
+    // Set up wheel event handling
+    this.gl.canvas.addEventListener('wheel', (event) => {
+      this.scrollManager.handleWheel(event)
+    })
+    
+    debugLogger.info('Events', 'Event handlers initialized')
   }
 
   /**
    * Resize.
    */
-  onResize () {
-    this.screen = {
-      height: window.innerHeight,
-      width: window.innerWidth
-    }
+  onResize (viewportState = null) {
+    // Get current viewport state from manager
+    const state = viewportState || this.viewportManager.getState()
+    
+    // Update renderer
+    this.renderer.setSize(state.screen.width, state.screen.height)
 
-    this.renderer.setSize(this.screen.width, this.screen.height)
-
+    // Update camera
     this.camera.perspective({
       aspect: this.gl.canvas.width / this.gl.canvas.height
     })
 
+    // Calculate WebGL viewport
     const fov = this.camera.fov * (Math.PI / 180)
     const height = 2 * Math.tan(fov / 2) * this.camera.position.z
     const width = height * this.camera.aspect
+    const viewport = { width, height }
 
-    this.viewport = {
-      height,
-      width
+    // Update viewport manager with WebGL viewport
+    this.viewportManager.state.viewport = {
+      width: this.gl.canvas.width,
+      height: this.gl.canvas.height
     }
 
+    // Update post processing
     this.post.resize()
-
     this.resolution.value.set(this.gl.canvas.width, this.gl.canvas.height)
 
-    this.galleryBounds = this.gallery.getBoundingClientRect()
+    // Calculate gallery dimensions using constants
+    const galleryBounds = this.gallery.getBoundingClientRect()
+    const layout = this.viewportManager.calculateLayout(ELEMENT_CONFIG)
     
-    // Calculate dynamic grid dimensions based on actual gallery size
-    // The gallery dimensions are set by the HTML script based on viewport
-    const elementWidth = 128
-    const elementHeight = 192
-    const gap = 5
+    // Calculate full grid dimensions for infinite wrapping
+    const fullGridWidth = layout.columns * (ELEMENT_CONFIG.WIDTH + ELEMENT_CONFIG.GAP)
+    const fullGridHeight = layout.rows * (ELEMENT_CONFIG.HEIGHT + ELEMENT_CONFIG.GAP)
     
-    // Calculate actual columns and rows from gallery bounds
-    const actualCols = Math.floor((this.galleryBounds.width + gap) / (elementWidth + gap))
-    const actualRows = Math.floor((this.galleryBounds.height + gap) / (elementHeight + gap))
+    // Convert to WebGL space
+    const galleryWidth = viewport.width * fullGridWidth / state.screen.width
+    const galleryHeight = viewport.height * fullGridHeight / state.screen.height
     
-    // For infinite wrapping, we need the full grid cycle including the gap to the next cycle
-    const fullGridWidth = actualCols * (elementWidth + gap)
-    const fullGridHeight = actualRows * (elementHeight + gap)
-    
-    this.galleryWidth = this.viewport.width * fullGridWidth / this.screen.width
-    this.galleryHeight = this.viewport.height * fullGridHeight / this.screen.height
+    // Update viewport manager with gallery dimensions
+    this.viewportManager.updateGalleryDimensions(ELEMENT_CONFIG, {
+      columns: layout.columns,
+      rows: layout.rows
+    })
 
+    // Update media elements
     if (this.medias) {
       this.medias.forEach(media => media.onResize({
-        screen: this.screen,
-        viewport: this.viewport,
-        galleryWidth: this.galleryWidth,
-        galleryHeight: this.galleryHeight
+        screen: state.screen,
+        viewport: viewport,
+        galleryWidth: galleryWidth,
+        galleryHeight: galleryHeight
       }))
     }
+    
+    debugLogger.info('Resize', 'Application resized', {
+      screen: state.screen,
+      viewport: viewport,
+      layout: layout
+    })
   }
 
   /**
    * Update.
    */
   update () {
-    // No auto scroll - only manual interaction moves the gallery
+    // Update scroll manager
+    this.scrollManager.update()
     
-    this.scroll.current.x = lerp(this.scroll.current.x, this.scroll.target.x, this.scroll.ease)
-    this.scroll.current.y = lerp(this.scroll.current.y, this.scroll.target.y, this.scroll.ease)
+    // Get current scroll state and mouse position
+    const scrollState = this.scrollManager.getState()
+    const mousePosition = this.mouseManager.getPosition()
+    const screenState = this.viewportManager.getScreen()
+    
+    // Drag handling is done via callbacks set in initEventHandlers
 
-    // Determine direction for both axes
-    this.direction = {
-      x: this.scroll.current.x > this.scroll.last.x ? 'right' : 'left',
-      y: this.scroll.current.y > this.scroll.last.y ? 'down' : 'up'
-    }
-
+    // Update media elements
     if (this.medias) {
-      this.medias.forEach(media => media.update(this.scroll, this.direction, this.mouse))
+      this.medias.forEach(media => media.update(
+        scrollState,
+        scrollState.direction,
+        mousePosition
+      ))
     }
 
-    // Calculate strength for post-processing effect based on both axes
-    const strengthX = (this.scroll.current.x - this.scroll.last.x) / this.screen.width * 0.5
-    const strengthY = (this.scroll.current.y - this.scroll.last.y) / this.screen.height * 0.5
-    this.pass.uniforms.uStrength.value = Math.sqrt(strengthX * strengthX + strengthY * strengthY)
+    // Calculate scroll velocity for post-processing effect
+    const scrollVelocity = this.scrollManager.getVelocity()
+    const strengthX = scrollVelocity.x / screenState.width * ANIMATION_CONFIG.STRENGTH_MULTIPLIER
+    const strengthY = scrollVelocity.y / screenState.height * ANIMATION_CONFIG.STRENGTH_MULTIPLIER
+    const totalStrength = Math.sqrt(strengthX * strengthX + strengthY * strengthY)
+    
+    this.pass.uniforms.uStrength.value = totalStrength
 
+    // Render scene
     this.post.render({
       scene: this.scene,
       camera: this.camera
     })
 
-    this.scroll.last.x = this.scroll.current.x
-    this.scroll.last.y = this.scroll.current.y
+    // Update debug panel if enabled
+    if (this.debugPanel) {
+      this.debugPanel.updateState({
+        scroll: scrollState,
+        mouse: this.mouseManager.getState(),
+        viewport: this.viewportManager.getDebugInfo(),
+        performance: {
+          totalStrength: totalStrength,
+          mediaCount: this.medias ? this.medias.length : 0
+        }
+      })
+    }
 
     window.requestAnimationFrame(this.update.bind(this))
   }
 
   /**
-   * Listeners.
+   * Dispose of all resources and clean up
    */
-  addEventListeners () {
-    window.addEventListener('resize', this.onResize.bind(this))
-
-    window.addEventListener('mousewheel', this.onWheel.bind(this))
-    window.addEventListener('wheel', this.onWheel.bind(this))
-
-    window.addEventListener('mousedown', this.onTouchDown.bind(this))
-    window.addEventListener('mousemove', this.onTouchMove.bind(this))
-    window.addEventListener('mouseup', this.onTouchUp.bind(this))
-
-    window.addEventListener('touchstart', this.onTouchDown.bind(this))
-    window.addEventListener('touchmove', this.onTouchMove.bind(this))
-    window.addEventListener('touchend', this.onTouchUp.bind(this))
+  dispose() {
+    // Dispose of managers
+    if (this.scrollManager) {
+      this.scrollManager.dispose()
+    }
+    
+    if (this.mouseManager) {
+      this.mouseManager.dispose()
+    }
+    
+    if (this.viewportManager) {
+      this.viewportManager.dispose()
+    }
+    
+    // Dispose of debug panel
+    if (this.debugPanel) {
+      this.debugPanel.dispose()
+    }
+    
+    // Dispose of media elements
+    if (this.medias) {
+      this.medias.forEach(media => media.dispose())
+    }
+    
+    debugLogger.info('App', 'Application disposed successfully')
   }
 }
