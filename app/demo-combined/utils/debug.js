@@ -385,7 +385,36 @@ export class DebugPanel {
       return html
     }
 
-    stateElement.innerHTML = createStateHTML(state)
+    // Add memory information to state
+    const stateWithMemory = {
+      ...state,
+      memory: this.getMemoryInfo()
+    }
+
+    stateElement.innerHTML = createStateHTML(stateWithMemory)
+  }
+
+  /**
+   * Get memory information from performance API
+   * @returns {Object} Memory information
+   */
+  getMemoryInfo() {
+    if (!performance.memory) {
+      return { error: 'Memory API not available' }
+    }
+
+    const memory = performance.memory
+    const formatBytes = (bytes) => {
+      const mb = bytes / (1024 * 1024)
+      return `${mb.toFixed(1)} MB`
+    }
+
+    return {
+      used: formatBytes(memory.usedJSHeapSize),
+      total: formatBytes(memory.totalJSHeapSize),
+      limit: formatBytes(memory.jsHeapSizeLimit),
+      usage: `${((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100).toFixed(1)}%`
+    }
   }
 
   /**

@@ -35,10 +35,11 @@ export default class App {
     this.onResize()
     this.update()
     
-    // Start ultra-aggressive initial preloading
+    // Start conservative initial preloading
     if (this.preloadManager && this.medias.length > 0) {
-      // Preload the first 50-100 book covers immediately
-      const initialPreloadCount = Math.min(100, this.medias.length)
+      // Only preload visible covers initially to prevent memory bloat
+      const layout = this.viewportManager.calculateLayout(ELEMENT_CONFIG)
+      const initialPreloadCount = Math.min(layout.total, 20) // Only preload visible + small buffer
       
       for (let i = 0; i < initialPreloadCount; i++) {
         const media = this.medias[i]
@@ -47,7 +48,7 @@ export default class App {
         }
       }
       
-      debugLogger.info('Preload', `Ultra-aggressive initial preloading started for ${initialPreloadCount} covers`)
+      debugLogger.info('Preload', `Conservative initial preloading started for ${initialPreloadCount} covers`)
     }
     
     debugLogger.info('App', 'Application initialized successfully')

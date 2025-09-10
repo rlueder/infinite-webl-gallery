@@ -19,7 +19,7 @@ export class PreloadManager {
     // Configuration
     this.config = {
       preloadDistance: 3, // How many covers ahead to preload
-      maxCacheSize: 100,  // Maximum images to keep in cache (increased)
+      maxCacheSize: 50,  // Maximum images to keep in cache (reduced for memory management)
       preloadTimeout: 5000, // Timeout for preloading requests
       preloadBuffer: 300  // Extra pixels beyond viewport to preload (increased)
     }
@@ -68,7 +68,10 @@ export class PreloadManager {
       this.preloadBookCover(index)
     }
     
-    // Clean up old cache entries
+    // Clean up cache entries based on distance from current position
+    this.cleanupByDistance(currentIndex, totalBooks)
+    
+    // Clean up old cache entries if still over limit
     this.cleanupCache()
   }
 
@@ -269,6 +272,52 @@ export class PreloadManager {
   }
 
   /**
+   * Clean up cache entries based on distance from current position
+   * @param {number} currentIndex - Current book index
+   * @param {number} totalBooks - Total number of books
+   */
+  cleanupByDistance(currentIndex, totalBooks) {
+    if (!totalBooks) return
+    
+    const cleanupDistance = this.config.preloadDistance * 4 // Clean up beyond 4x preload distance
+    const cleanedUp = []
+    
+    // Clean up image cache
+    for (const [bookIndex, image] of this.imageCache) {
+      const distance = Math.min(
+        Math.abs(bookIndex - currentIndex),
+        Math.abs(bookIndex - currentIndex + totalBooks),
+        Math.abs(bookIndex - currentIndex - totalBooks)
+      )
+      
+      if (distance > cleanupDistance) {
+        this.disposeImage(image)
+        this.imageCache.delete(bookIndex)
+        cleanedUp.push(bookIndex)
+      }
+    }
+    
+    // Clean up fallback cache
+    for (const [bookIndex, canvas] of this.fallbackCache) {
+      const distance = Math.min(
+        Math.abs(bookIndex - currentIndex),
+        Math.abs(bookIndex - currentIndex + totalBooks),
+        Math.abs(bookIndex - currentIndex - totalBooks)
+      )
+      
+      if (distance > cleanupDistance) {
+        this.disposeImage(canvas)
+        this.fallbackCache.delete(bookIndex)
+        cleanedUp.push(bookIndex)
+      }
+    }
+    
+    if (cleanedUp.length > 0) {
+      debugLogger.debug('PreloadManager', `Distance-based cleanup: ${cleanedUp.length} items removed`)
+    }
+  }
+
+  /**
    * Clean up old cache entries to prevent memory leaks
    */
   cleanupCache() {
@@ -280,7 +329,20 @@ export class PreloadManager {
       const imageKeys = Array.from(this.imageCache.keys()).slice(0, imagesToRemove)
       
       for (const key of imageKeys) {
+        const image = this.imageCache.get(key)
+        this.disposeImage(image)
         this.imageCache.delete(key)
+      }
+      
+      // Also clean up fallback cache if still over limit
+      const remainingToRemove = totalCached - imagesToRemove - this.config.maxCacheSize
+      if (remainingToRemove > 0) {
+        const fallbackKeys = Array.from(this.fallbackCache.keys()).slice(0, remainingToRemove)
+        for (const key of fallbackKeys) {
+          const canvas = this.fallbackCache.get(key)
+          this.disposeImage(canvas)
+          this.fallbackCache.delete(key)
+        }
       }
       
       debugLogger.debug('PreloadManager', `Cleaned up ${imagesToRemove} cached images`)
@@ -288,9 +350,46 @@ export class PreloadManager {
   }
 
   /**
+   * Properly dispose of an image/canvas to help with garbage collection
+   * @param {HTMLImageElement|HTMLCanvasElement} image - Image to dispose
+   */
+  disposeImage(image) {
+    if (!image) return
+    
+    try {
+      // For HTMLImageElement, clear the src to break the reference
+      if (image instanceof HTMLImageElement) {
+        image.src = ''
+        image.onload = null
+        image.onerror = null
+      }
+      
+      // For HTMLCanvasElement, clear the canvas
+      if (image instanceof HTMLCanvasElement) {
+        const ctx = image.getContext('2d')
+        if (ctx) {
+          ctx.clearRect(0, 0, image.width, image.height)
+        }
+        image.width = 0
+        image.height = 0
+      }
+    } catch (error) {
+      debugLogger.warn('PreloadManager', 'Error disposing image:', error)
+    }
+  }
+
+  /**
    * Clear all caches
    */
   clearCache() {
+    // Dispose all cached images properly
+    for (const image of this.imageCache.values()) {
+      this.disposeImage(image)
+    }
+    for (const canvas of this.fallbackCache.values()) {
+      this.disposeImage(canvas)
+    }
+    
     this.imageCache.clear()
     this.fallbackCache.clear()
     this.preloadQueue.clear()
