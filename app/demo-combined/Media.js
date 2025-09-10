@@ -3,6 +3,9 @@ import { Mesh, Program, Texture } from 'ogl'
 import fragment from './fragment.glsl'
 import vertex from './vertex.glsl'
 
+// Global book counter to ensure sequential display
+let globalBookIndex = 0
+
 export default class {
   constructor ({ element, geometry, gl, scene, screen, viewport, galleryWidth, galleryHeight }) {
     this.element = element
@@ -32,13 +35,6 @@ export default class {
   }
 
   createMesh () {
-    // Generate random color for this element
-    const hue = Math.random() * 360
-    const saturation = 50 + Math.random() * 50 // 50-100%
-    const lightness = 40 + Math.random() * 40 // 40-80%
-    
-    const randomColor = this.hslToRgb(hue, saturation, lightness)
-
     const image = new Image()
     const texture = new Texture(this.gl, {
       generateMipmaps: false
@@ -53,23 +49,14 @@ export default class {
         uImageSizes: { value: [128, 192] }, // Standard size
         uViewportSizes: { value: [this.viewport.width, this.viewport.height] },
         uStrength: { value: 0 },
-        uColor: { value: [randomColor[0]/255, randomColor[1]/255, randomColor[2]/255, 1.0] }, // Normalize RGB to 0-1 range
+        uColor: { value: [1.0, 1.0, 1.0, 1.0] }, // White default
         uHoverScale: { value: 1.0 } // Hover scaling factor
       },
       transparent: true
     })
 
-    // Always create a colored texture since we want random colors
-    // Create a 1x1 pixel canvas with the random color
-    const canvas = document.createElement('canvas')
-    canvas.width = 1
-    canvas.height = 1
-    const ctx = canvas.getContext('2d')
-    ctx.fillStyle = `rgb(${randomColor[0]}, ${randomColor[1]}, ${randomColor[2]})`
-    ctx.fillRect(0, 0, 1, 1)
-    
-    texture.image = canvas
-    this.program.uniforms.uImageSizes.value = [1, 1]
+    // Generate a random ISBN and load book cover
+    this.loadBookCover(image, texture)
 
     this.plane = new Mesh(this.gl, {
       geometry: this.geometry,
@@ -79,34 +66,102 @@ export default class {
     this.plane.setParent(this.scene)
   }
 
-  // Convert HSL to RGB
-  hslToRgb (h, s, l) {
-    h /= 360
-    s /= 100
-    l /= 100
+  // Get next ISBN sequentially to avoid duplicates
+  generateISBN () {
+    // Use a pool of real book ISBNs that are known to have covers on Open Library
+    const isbns = [
+      '9780547928227', // The Hobbit
+      '9780345339683', // The Lord of the Rings
+      '9780439708180', // Harry Potter and the Sorcerer's Stone
+      '9780061120084', // To Kill a Mockingbird
+      '9780486282114', // Pride and Prejudice
+      '9780743273565', // The Great Gatsby
+      '9780141439518', // Jane Eyre
+      '9780316769174', // The Catcher in the Rye
+      '9780062315007', // The Alchemist
+      '9780452284234', // One Hundred Years of Solitude
+      '9780060935467', // To the Lighthouse
+      '9780141182605', // 1984
+      '9780060850524', // Brave New World
+      '9780679783268', // Beloved
+      '9780684801221', // The Old Man and the Sea
+      '9780679601395', // The Sun Also Rises
+      '9780525478812', // The Fault in Our Stars
+      '9780375842207', // Life of Pi
+      '9780812993547', // Where the Crawdads Sing
+      '9780593138885', // The Seven Husbands of Evelyn Hugo
+      '9780345816023', // Ready Player One
+      '9780593085417', // Project Hail Mary
+      '9780440180296', // The Handmaid's Tale
+      '9781594744769', // Educated
+      '9780735219090', // Where the Forest Meets the Stars
+      '9780441172719', // Dune
+      '9780064471046', // The Lion, the Witch and the Wardrobe
+      '9780307588371', // Gone Girl
+      '9780307269751', // The Girl with the Dragon Tattoo
+      '9781594631931', // The Kite Runner
+      '9780399501487', // The Help
+      '9780439023528', // The Hunger Games
+      '9780316015844', // Twilight
+      '9781400079983', // Middlesex
+      '9780307277671', // The Catcher in the Rye (alt)
+      '9780451524935', // Animal Farm
+      '9780140283334', // Slaughterhouse-Five
+      '9780143039433', // The Kite Runner (alt)
+      '9780544003415', // The Lord of the Rings (alt)
+      '9780804139038'  // Educated (alt)
+    ]
     
-    const hue2rgb = (p, q, t) => {
-      if (t < 0) t += 1
-      if (t > 1) t -= 1
-      if (t < 1/6) return p + (q - p) * 6 * t
-      if (t < 1/2) return q
-      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6
-      return p
+    // Get current book and increment global counter
+    const selectedISBN = isbns[globalBookIndex % isbns.length]
+    globalBookIndex++
+    
+    return selectedISBN
+  }
+
+  // Load book cover from Open Library API
+  async loadBookCover (image, texture) {
+    const isbn = this.generateISBN()
+    console.log(`Loading book cover ${globalBookIndex - 1} - ISBN:`, isbn)
+    
+    // Open Library direct cover API - no rate limits, no API key needed
+    const imageUrl = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`
+    
+    // Load the book cover image
+    image.crossOrigin = 'anonymous'
+    image.onload = () => {
+      console.log('Successfully loaded image for ISBN:', isbn)
+      this.isFallbackTexture = false // Flag for debugging
+      texture.image = image
+      texture.needsUpdate = true
+      // Use consistent dimensions for all elements regardless of actual image size
+      this.program.uniforms.uImageSizes.value = [128, 192]
     }
-
-    let r, g, b
-
-    if (s === 0) {
-      r = g = b = l // achromatic
-    } else {
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s
-      const p = 2 * l - q
-      r = hue2rgb(p, q, h + 1/3)
-      g = hue2rgb(p, q, h)
-      b = hue2rgb(p, q, h - 1/3)
+    image.onerror = () => {
+      console.warn('Failed to load image for ISBN:', isbn, 'creating fallback')
+      this.createFallbackTexture(texture)
     }
+    image.src = imageUrl
+  }
 
-    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)]
+  // Create fallback colored texture if API fails
+  createFallbackTexture (texture) {
+    console.log('Creating fallback texture')
+    this.isFallbackTexture = true // Flag for debugging
+    
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 192
+    const ctx = canvas.getContext('2d')
+    
+    // Generate a random color for fallback
+    const hue = Math.random() * 360
+    ctx.fillStyle = `hsl(${hue}, 70%, 50%)`
+    ctx.fillRect(0, 0, 128, 192)
+    
+    texture.image = canvas
+    texture.needsUpdate = true
+    this.program.uniforms.uImageSizes.value = [128, 192]
   }
 
   createBounds () {
@@ -199,25 +254,39 @@ export default class {
    * Hover Effects.
    */
   checkMouseHover (mouse, scroll) {
-    if (!mouse || !scroll) return false
+    if (!mouse || !scroll || !this.plane) return false
 
-    // Calculate the actual visual position accounting for scroll and infinite wrapping
-    const visualX = this.bounds.left - scroll.current.x - this.extra.x
-    const visualY = this.bounds.top - scroll.current.y - this.extra.y
+    // Convert WebGL plane position to screen coordinates
+    // The plane position is in WebGL space, we need to convert it to screen pixels
+    const planeScreenX = (this.plane.position.x / this.viewport.width) * this.screen.width + (this.screen.width / 2)
+    const planeScreenY = -(this.plane.position.y / this.viewport.height) * this.screen.height + (this.screen.height / 2)
 
-    // Calculate element center in screen space
-    const centerX = visualX + (this.bounds.width / 2)
-    const centerY = visualY + (this.bounds.height / 2)
+    // Calculate element dimensions in screen space
+    const elementScreenWidth = (this.plane.scale.x / this.viewport.width) * this.screen.width
+    const elementScreenHeight = (this.plane.scale.y / this.viewport.height) * this.screen.height
 
-    // Define hover area around the center
-    const halfWidth = this.bounds.width / 2
-    const halfHeight = this.bounds.height / 2
+    // Define hover area around the plane's actual position
+    const halfWidth = elementScreenWidth / 2
+    const halfHeight = elementScreenHeight / 2
 
     // Check if mouse is within hover area centered on element
-    return mouse.x >= centerX - halfWidth && 
-           mouse.x <= centerX + halfWidth && 
-           mouse.y >= centerY - halfHeight && 
-           mouse.y <= centerY + halfHeight
+    const isHovering = mouse.x >= planeScreenX - halfWidth && 
+                      mouse.x <= planeScreenX + halfWidth && 
+                      mouse.y >= planeScreenY - halfHeight && 
+                      mouse.y <= planeScreenY + halfHeight
+
+    // Debug hover for fallback textures
+    if (isHovering && this.isFallbackTexture) {
+      console.log('Fallback texture hover:', {
+        mouse: { x: mouse.x, y: mouse.y },
+        planeScreen: { x: planeScreenX, y: planeScreenY },
+        planeWebGL: { x: this.plane.position.x, y: this.plane.position.y },
+        scale: { x: this.plane.scale.x, y: this.plane.scale.y },
+        elementDimensions: { width: elementScreenWidth, height: elementScreenHeight }
+      })
+    }
+
+    return isHovering
   }
 
   updateHover (mouse, scroll) {
@@ -227,16 +296,20 @@ export default class {
     if (isHovering && !this.hover.isHovered) {
       this.hover.isHovered = true
       this.hover.targetScale = 1.3 // Scale up by 30%
+      console.log('Hover started')
     } else if (!isHovering && this.hover.isHovered) {
       this.hover.isHovered = false
       this.hover.targetScale = 1.0 // Return to normal size
+      console.log('Hover ended')
     }
 
     // Smooth lerp animation for hover scale
     this.hover.scale += (this.hover.targetScale - this.hover.scale) * this.hover.ease
     
     // Update shader uniform
-    this.plane.program.uniforms.uHoverScale.value = this.hover.scale
+    if (this.plane && this.plane.program && this.plane.program.uniforms && this.plane.program.uniforms.uHoverScale) {
+      this.plane.program.uniforms.uHoverScale.value = this.hover.scale
+    }
   }
 
   /**

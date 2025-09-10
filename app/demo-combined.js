@@ -116,10 +116,14 @@ export default class App {
   }
 
   onTouchMove (event) {
+    // Always track mouse position for hover effects
+    this.mouse.x = event.touches ? event.touches[0].clientX : event.clientX
+    this.mouse.y = event.touches ? event.touches[0].clientY : event.clientY
+
     if (!this.isDown) return
 
-    const x = event.touches ? event.touches[0].clientX : event.clientX
-    const y = event.touches ? event.touches[0].clientY : event.clientY
+    const x = this.mouse.x
+    const y = this.mouse.y
     const distanceX = (this.start.x - x) * 2
     const distanceY = (this.start.y - y) * 2
 
@@ -235,11 +239,6 @@ export default class App {
   /**
    * Listeners.
    */
-  onMouseMove (event) {
-    this.mouse.x = event.clientX
-    this.mouse.y = event.clientY
-  }
-
   addEventListeners () {
     window.addEventListener('resize', this.onResize.bind(this))
 
@@ -249,9 +248,6 @@ export default class App {
     window.addEventListener('mousedown', this.onTouchDown.bind(this))
     window.addEventListener('mousemove', this.onTouchMove.bind(this))
     window.addEventListener('mouseup', this.onTouchUp.bind(this))
-
-    // Add dedicated mouse move listener for hover effects
-    window.addEventListener('mousemove', this.onMouseMove.bind(this))
 
     window.addEventListener('touchstart', this.onTouchDown.bind(this))
     window.addEventListener('touchmove', this.onTouchMove.bind(this))
