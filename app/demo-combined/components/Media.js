@@ -1,13 +1,13 @@
 /**
  * Media - Main orchestrator for individual gallery elements
- * Coordinates between renderer, loader, position, and hover components
+ * Coordinates between renderer, loader, position, and zoom components
  */
 
 import { ANIMATION_CONFIG } from '../config/constants.js'
 import { MediaRenderer } from './MediaRenderer.js'
 import { MediaLoader } from './MediaLoader.js'
 import { MediaPosition } from './MediaPosition.js'
-import { MediaHover } from './MediaHover.js'
+import { MediaZoom } from './MediaZoom.js'
 import { magnitude } from '../utils/math.js'
 
 export class Media {
@@ -21,7 +21,7 @@ export class Media {
     // Initialize components
     this.renderer = new MediaRenderer(gl, geometry, scene, viewport)
     this.position = new MediaPosition(element, screen, viewport, galleryWidth, galleryHeight)
-    this.hover = new MediaHover()
+    this.zoom = new MediaZoom()
     this.loader = new MediaLoader(this.renderer.getTexture(), this.renderer.getProgram(), preloadManager)
 
     // Start loading book cover
@@ -35,10 +35,9 @@ export class Media {
    * Update all components for the current frame
    * @param {Object} scroll - Scroll state {current, last}
    * @param {Object} direction - Scroll direction {x, y}
-   * @param {Object} mouse - Mouse position {x, y}
    * @param {boolean} debugMode - Whether to enable debug logging
    */
-  update(scroll, direction, mouse, debugMode = false) {
+  update(scroll, direction, debugMode = false) {
     const mesh = this.renderer.getMesh()
     if (!mesh) return
 
@@ -48,11 +47,11 @@ export class Media {
     // Update renderer with new scale values
     this.renderer.updatePlaneSizes(mesh.scale.x, mesh.scale.y)
 
-    // Update hover state
-    const hoverChanged = this.hover.update(mouse, mesh, this.viewport, this.screen, debugMode)
+    // Update zoom based on distance from center
+    const zoomChanged = this.zoom.update(mesh, this.viewport, this.screen, debugMode)
     
-    // Update hover scale in renderer
-    this.renderer.updateHoverScale(this.hover.getScale())
+    // Update zoom scale in renderer
+    this.renderer.updateHoverScale(this.zoom.getScale())
 
     // Calculate and update scroll strength effect
     const strengthX = ((scroll.current.x - scroll.last.x) / this.screen.width) * ANIMATION_CONFIG.STRENGTH_MULTIPLIER
@@ -63,7 +62,7 @@ export class Media {
 
     return {
       wrapping,
-      hoverChanged,
+      zoomChanged,
       strength: totalStrength
     }
   }
@@ -103,7 +102,7 @@ export class Media {
     
     return {
       loader: this.loader.getInfo(),
-      hover: this.hover.getState(),
+      zoom: this.zoom.getState(),
       position: {
         extra: this.position.getExtra(),
         bounds: this.position.getBounds(),
@@ -122,11 +121,11 @@ export class Media {
   }
 
   /**
-   * Check if this element is currently hovered
-   * @returns {boolean} Whether hovered
+   * Check if this element is currently zoomed (center area)
+   * @returns {boolean} Whether in center zoom area
    */
-  isHovered() {
-    return this.hover.isHovered()
+  isZoomedCenter() {
+    return this.zoom.getScale() > 1.08 // Close to 1.1x zoom
   }
 
   /**
@@ -142,6 +141,6 @@ export class Media {
    */
   dispose() {
     this.renderer.dispose()
-    this.hover.reset()
+    this.zoom.reset()
   }
 }

@@ -300,8 +300,7 @@ export default class App {
     if (this.medias) {
       this.medias.forEach(media => media.update(
         scrollState,
-        scrollState.direction,
-        mousePosition
+        scrollState.direction
       ))
     }
 
