@@ -190,13 +190,22 @@ export class ViewportManager {
     const elementWidth = elementConfig.WIDTH + elementConfig.GAP
     const elementHeight = elementConfig.HEIGHT + elementConfig.GAP
     
-    const columns = Math.ceil(this.state.screen.width / elementWidth) + 2 // +2 for buffer
-    const rows = Math.ceil(this.state.screen.height / elementHeight) + 2 // +2 for buffer
+    // Calculate base columns/rows that fit in viewport
+    // Use Math.ceil to ensure full viewport coverage, even if elements extend beyond edge
+    // This eliminates gaps at viewport boundaries for seamless infinite scrolling
+    const baseColumns = Math.ceil(this.state.screen.width / elementWidth)
+    const baseRows = Math.ceil(this.state.screen.height / elementHeight)
+    
+    // Add buffer for smooth infinite scrolling
+    const columns = baseColumns + 2 // +2 for buffer (1 on each side)
+    const rows = baseRows + 2 // +2 for buffer (1 on each side)
     
     return {
       columns,
       rows,
-      total: columns * rows
+      total: columns * rows,
+      baseColumns, // Track base layout for debugging
+      baseRows
     }
   }
 

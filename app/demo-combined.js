@@ -5,6 +5,7 @@ import { Media } from './demo-combined/components/Media.js'
 import { ScrollManager } from './demo-combined/managers/ScrollManager.js'
 import { MouseManager } from './demo-combined/managers/MouseManager.js'
 import { ViewportManager } from './demo-combined/managers/ViewportManager.js'
+import { PreloadManager } from './demo-combined/managers/PreloadManager.js'
 import { debugLogger, DebugPanel } from './demo-combined/utils/debug.js'
 import fragment from './demo-combined/fragment.glsl'
 
@@ -34,6 +35,21 @@ export default class App {
     this.onResize()
     this.update()
     
+    // Start ultra-aggressive initial preloading
+    if (this.preloadManager && this.medias.length > 0) {
+      // Preload the first 50-100 book covers immediately
+      const initialPreloadCount = Math.min(100, this.medias.length)
+      
+      for (let i = 0; i < initialPreloadCount; i++) {
+        const media = this.medias[i]
+        if (media && media.loader) {
+          this.preloadManager.preloadBookCover(media.loader.bookIndex)
+        }
+      }
+      
+      debugLogger.info('Preload', `Ultra-aggressive initial preloading started for ${initialPreloadCount} covers`)
+    }
+    
     debugLogger.info('App', 'Application initialized successfully')
   }
 
@@ -57,6 +73,13 @@ export default class App {
     
     // Initialize viewport manager
     this.viewportManager = new ViewportManager()
+    
+    // Initialize preload manager
+    this.preloadManager = new PreloadManager()
+    
+    // Throttle preloading to avoid performance issues
+    this.lastPreloadCheck = 0
+    this.preloadCheckInterval = 50 // Check every 50ms for more responsive preloading
     
     debugLogger.info('Managers', 'All managers initialized')
   }
@@ -119,7 +142,8 @@ export default class App {
         screen: this.viewportManager.getScreen(),
         viewport: this.viewportManager.getViewport(),
         galleryWidth: this.viewportManager.getGalleryDimensions().width,
-        galleryHeight: this.viewportManager.getGalleryDimensions().height
+        galleryHeight: this.viewportManager.getGalleryDimensions().height,
+        preloadManager: this.preloadManager
       })
 
       return media
@@ -208,8 +232,11 @@ export default class App {
     const layout = this.viewportManager.calculateLayout(ELEMENT_CONFIG)
     
     // Calculate full grid dimensions for infinite wrapping
-    const fullGridWidth = layout.columns * (ELEMENT_CONFIG.WIDTH + ELEMENT_CONFIG.GAP)
-    const fullGridHeight = layout.rows * (ELEMENT_CONFIG.HEIGHT + ELEMENT_CONFIG.GAP)
+    // The wrapping distance should be the exact spacing between the start of one cycle
+    // and the start of the next cycle. This is simply: columns * (width + gap)
+    // because each element occupies (width + gap) space, including the last element
+    const fullGridWidth = layout.baseColumns * (ELEMENT_CONFIG.WIDTH + ELEMENT_CONFIG.GAP)
+    const fullGridHeight = layout.baseRows * (ELEMENT_CONFIG.HEIGHT + ELEMENT_CONFIG.GAP)
     
     // Convert to WebGL space
     const galleryWidth = viewport.width * fullGridWidth / state.screen.width
@@ -217,8 +244,8 @@ export default class App {
     
     // Update viewport manager with gallery dimensions
     this.viewportManager.updateGalleryDimensions(ELEMENT_CONFIG, {
-      columns: layout.columns,
-      rows: layout.rows
+      columns: layout.baseColumns, // Use base layout for seamless wrapping
+      rows: layout.baseRows
     })
 
     // Update media elements
@@ -234,7 +261,23 @@ export default class App {
     debugLogger.info('Resize', 'Application resized', {
       screen: state.screen,
       viewport: viewport,
-      layout: layout
+      layout: layout,
+      galleryDimensions: {
+        fullGridWidth,
+        fullGridHeight,
+        galleryWidth,
+        galleryHeight,
+        elementSpacing: ELEMENT_CONFIG.WIDTH + ELEMENT_CONFIG.GAP,
+        calculations: {
+          baseColumns: layout.baseColumns,
+          elementWidth: ELEMENT_CONFIG.WIDTH,
+          gap: ELEMENT_CONFIG.GAP,
+          totalWidth: layout.baseColumns * (ELEMENT_CONFIG.WIDTH + ELEMENT_CONFIG.GAP),
+          screenWidth: state.screen.width,
+          elementSpacing: ELEMENT_CONFIG.WIDTH + ELEMENT_CONFIG.GAP,
+          coverage: (layout.baseColumns * (ELEMENT_CONFIG.WIDTH + ELEMENT_CONFIG.GAP)) / state.screen.width
+        }
+      }
     })
   }
 
@@ -261,6 +304,35 @@ export default class App {
       ))
     }
 
+    // Throttled preloading based on grid position and scroll direction
+    const now = performance.now()
+    if (this.preloadManager && this.medias && (now - this.lastPreloadCheck) > this.preloadCheckInterval) {
+      // Get current layout for grid-based preloading
+      const layout = this.viewportManager.calculateLayout(ELEMENT_CONFIG)
+      
+      // Preload all visible elements immediately
+      this.preloadManager.preloadVisibleAndNear(
+        this.medias, 
+        this.viewportManager.getViewport(),
+        screenState
+      )
+      
+      // Grid-based predictive preloading
+      this.preloadManager.preloadByGridPosition(
+        scrollState,
+        layout,
+        this.medias
+      )
+      
+      // Also trigger directional preloading when actively scrolling
+      if (this.scrollManager.isActivelyScrolling()) {
+        const centerBookIndex = Math.floor(this.medias.length / 2)
+        this.preloadManager.preloadAround(centerBookIndex, scrollState.direction, this.medias.length)
+      }
+      
+      this.lastPreloadCheck = now
+    }
+
     // Calculate scroll velocity for post-processing effect
     const scrollVelocity = this.scrollManager.getVelocity()
     const strengthX = scrollVelocity.x / screenState.width * ANIMATION_CONFIG.STRENGTH_MULTIPLIER
@@ -281,6 +353,7 @@ export default class App {
         scroll: scrollState,
         mouse: this.mouseManager.getState(),
         viewport: this.viewportManager.getDebugInfo(),
+        preload: this.preloadManager.getDebugInfo(),
         performance: {
           totalStrength: totalStrength,
           mediaCount: this.medias ? this.medias.length : 0
@@ -306,6 +379,10 @@ export default class App {
     
     if (this.viewportManager) {
       this.viewportManager.dispose()
+    }
+    
+    if (this.preloadManager) {
+      this.preloadManager.dispose()
     }
     
     // Dispose of debug panel

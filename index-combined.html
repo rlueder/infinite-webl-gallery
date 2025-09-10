@@ -52,11 +52,11 @@
       const elementHeight = 192;
       const gap = 5;
       
-      const cols = Math.floor((viewportWidth + gap) / (elementWidth + gap));
+      const cols = Math.ceil(viewportWidth / (elementWidth + gap));
       const rows = Math.ceil(500 / cols); // Ensure we have at least 500 items
       
-      // Update gallery container size
-      gallery.style.width = (cols * (elementWidth + gap) - gap) + 'px';
+      // Update gallery container size to ensure full viewport coverage
+      gallery.style.width = Math.max(viewportWidth, cols * (elementWidth + gap) - gap) + 'px';
       gallery.style.height = (rows * (elementHeight + gap) - gap) + 'px';
       
       for (let i = 0; i < 500; i++) {

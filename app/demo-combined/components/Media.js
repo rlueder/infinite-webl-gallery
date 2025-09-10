@@ -11,7 +11,7 @@ import { MediaHover } from './MediaHover.js'
 import { magnitude } from '../utils/math.js'
 
 export class Media {
-  constructor({ element, geometry, gl, scene, screen, viewport, galleryWidth, galleryHeight }) {
+  constructor({ element, geometry, gl, scene, screen, viewport, galleryWidth, galleryHeight, preloadManager = null }) {
     this.element = element
     this.gl = gl
     this.scene = scene
@@ -22,7 +22,7 @@ export class Media {
     this.renderer = new MediaRenderer(gl, geometry, scene, viewport)
     this.position = new MediaPosition(element, screen, viewport, galleryWidth, galleryHeight)
     this.hover = new MediaHover()
-    this.loader = new MediaLoader(this.renderer.getTexture(), this.renderer.getProgram())
+    this.loader = new MediaLoader(this.renderer.getTexture(), this.renderer.getProgram(), preloadManager)
 
     // Start loading book cover
     this.loader.load()

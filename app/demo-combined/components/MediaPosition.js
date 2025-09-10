@@ -94,32 +94,30 @@ export class MediaPosition {
     const viewportOffsetX = this.viewport.width / 2
     const viewportOffsetY = this.viewport.height / 2
 
-    // Add buffer for smooth wrapping
-    const bufferX = mesh.scale.x
-    const bufferY = mesh.scale.y
-
-    const isBeforeX = mesh.position.x + planeOffsetX < -viewportOffsetX + bufferX
-    const isAfterX = mesh.position.x - planeOffsetX > viewportOffsetX - bufferX
-    const isBeforeY = mesh.position.y + planeOffsetY < -viewportOffsetY + bufferY
-    const isAfterY = mesh.position.y - planeOffsetY > viewportOffsetY - bufferY
+    // Only wrap when element is COMPLETELY offscreen (no buffer)
+    // This prevents flickering and creates smoother infinite gallery effect
+    const isCompletelyBeforeX = mesh.position.x + planeOffsetX < -viewportOffsetX
+    const isCompletelyAfterX = mesh.position.x - planeOffsetX > viewportOffsetX
+    const isCompletelyBeforeY = mesh.position.y + planeOffsetY < -viewportOffsetY
+    const isCompletelyAfterY = mesh.position.y - planeOffsetY > viewportOffsetY
 
     let wrappedX = false
     let wrappedY = false
 
-    // X-axis wrapping
-    if (direction.x === 'right' && isBeforeX) {
+    // X-axis wrapping - only when completely offscreen
+    if (direction.x === 'right' && isCompletelyBeforeX) {
       this.extra.x -= this.galleryWidth
       wrappedX = true
-    } else if (direction.x === 'left' && isAfterX) {
+    } else if (direction.x === 'left' && isCompletelyAfterX) {
       this.extra.x += this.galleryWidth
       wrappedX = true
     }
 
-    // Y-axis wrapping
-    if (direction.y === 'up' && isBeforeY) {
+    // Y-axis wrapping - only when completely offscreen
+    if (direction.y === 'up' && isCompletelyBeforeY) {
       this.extra.y -= this.galleryHeight
       wrappedY = true
-    } else if (direction.y === 'down' && isAfterY) {
+    } else if (direction.y === 'down' && isCompletelyAfterY) {
       this.extra.y += this.galleryHeight
       wrappedY = true
     }

@@ -10,14 +10,25 @@ import { createBookCoverUrl, createFallbackTexture, loadImageWithTimeout, update
  */
 let globalBookIndex = 0
 
+/**
+ * Global preload manager instance (shared across all media loaders)
+ */
+let globalPreloadManager = null
+
 export class MediaLoader {
-  constructor(texture, program) {
+  constructor(texture, program, preloadManager = null) {
     this.texture = texture
     this.program = program
     this.isLoading = false
     this.isFallbackTexture = false
     this.isbn = null
     this.bookIndex = globalBookIndex++
+    
+    // Use provided preload manager or global one
+    if (preloadManager) {
+      globalPreloadManager = preloadManager
+    }
+    this.preloadManager = globalPreloadManager
   }
 
   /**
@@ -33,7 +44,18 @@ export class MediaLoader {
     console.log(`Loading book cover ${this.bookIndex} - ISBN:`, this.isbn)
     
     try {
-      // Try to load the book cover
+      // First check if image is already preloaded
+      if (this.preloadManager) {
+        const cachedImage = this.preloadManager.getCachedImage(this.bookIndex)
+        if (cachedImage) {
+          console.log('Using preloaded image for book:', this.bookIndex)
+          this.isFallbackTexture = this.preloadManager.fallbackCache.has(this.bookIndex)
+          this.updateTexture(cachedImage)
+          return
+        }
+      }
+      
+      // If not preloaded, load normally
       const imageUrl = createBookCoverUrl(this.isbn)
       const image = await loadImageWithTimeout(imageUrl)
       
