@@ -1,4 +1,4 @@
-const merge = require('webpack-merge')
+const { merge } = require('webpack-merge')
 const path = require('path')
 
 const config = require('./webpack.config')
@@ -9,7 +9,12 @@ module.exports = merge(config, {
   devtool: 'inline-source-map',
 
   devServer: {
-    writeToDisk: true
+    static: {
+      directory: path.join(__dirname, 'InifniteAutoScrollingGallery')
+    },
+    compress: true,
+    port: 8080,
+    open: true
   },
 
   output: {

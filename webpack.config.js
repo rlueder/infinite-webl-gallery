@@ -49,15 +49,17 @@ module.exports = {
       template: path.join(__dirname, 'index2.html')
     }),
 
-    new CopyWebpackPlugin([
-      {
-        from: './images',
-        to: 'images'
-      }
-    ]),
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: './images',
+          to: 'images'
+        }
+      ]
+    }),
 
     new MiniCssExtractPlugin({
-      filename: '[name].[hash].css',
+      filename: '[name].[contenthash].css',
       chunkFilename: '[id].css'
     })
   ],
@@ -90,7 +92,8 @@ module.exports = {
           {
             loader: 'sass-loader',
             options: {
-              sourceMap: IS_DEVELOPMENT
+              sourceMap: IS_DEVELOPMENT,
+              api: 'modern'
             }
           }
         ]

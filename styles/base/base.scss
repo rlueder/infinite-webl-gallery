@@ -1,3 +1,6 @@
+@use '../utils/variables';
+@use '../mixins/links';
+
 * {
   margin: 0;
   padding: 0;
@@ -10,8 +13,8 @@
 }
 
 html {
-  background: $color-black;
-  color: $color-white;
+  background: variables.$color-black;
+  color: variables.$color-white;
   font-size: calc(100vw / 1920 * 10);
   height: 100%;
   left: 0;
@@ -85,7 +88,7 @@ canvas {
 a {
   @extend %link--hidden;
 
-  color: $color-white;
+  color: variables.$color-white;
   outline: none;
   text-decoration: none;
 

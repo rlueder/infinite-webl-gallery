@@ -1,10 +1,10 @@
-@import './utils/variables.scss';
+@use './utils/variables.scss';
 
-@import './base/base.scss';
-@import './base/frame.scss';
-@import './base/loader.scss';
+@use './base/base.scss';
+@use './base/frame.scss';
+@use './base/loader.scss';
 
-@import './mixins/links.scss';
+@use './mixins/links.scss';
 
-@import './demos/demo-1.scss';
-@import './demos/demo-2.scss';
+@use './demos/demo-1.scss';
+@use './demos/demo-2.scss';

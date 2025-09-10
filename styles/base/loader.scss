@@ -1,3 +1,5 @@
+@use '../utils/variables';
+
 /* Page Loader */
 html::after {
   content: '';
@@ -10,7 +12,7 @@ html::after {
   margin: -30px 0 0 -30px;
   border-radius: 50%;
   opacity: 0.4;
-  background: $color-white;
+  background: variables.$color-white;
   animation: loaderAnim 0.7s linear infinite alternate forwards;
   transition: opacity 0.4s ease;
 }
