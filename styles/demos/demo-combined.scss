@@ -1,0 +1,45 @@
+.demo-combined {
+  height: 100vh;
+  overflow: hidden;
+  width: 100vw;
+
+  &__header {
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    z-index: 2;
+  }
+
+  &__title {
+    font-size: 50rem;
+    font-weight: 100;
+    line-height: 1;
+    text-align: center;
+
+    @media screen and (max-width: 53em) {
+      font-size: 30rem;
+    }
+  }
+
+  &__gallery {
+    height: 1965px; // 10 rows: (192 + 5) * 10 - 5 = 1965px
+    position: relative;
+    width: 1325px; // 10 columns: (128 + 5) * 10 - 5 = 1325px
+  }
+
+  &__gallery__figure {
+    border-radius: 8px;
+    overflow: hidden;
+    position: absolute;
+    width: 128px;
+    height: 192px;
+  }
+
+  &__gallery__image {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+}

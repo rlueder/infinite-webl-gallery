@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js loading">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Infinite WebGL Gallery | Combined Demo | Codrops</title>
+    <meta name="description" content="Combined X/Y gesture infinite gallery with random colored elements." />
+    <meta name="keywords" content="javascript, webgl, shaders, glsl, inspiration, web design" />
+    <meta name="author" content="Codrops" />
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="stylesheet" href="https://use.typekit.net/zvj1jsw.css">
+  </head>
+
+  <body data-id="2">
+    <main>
+      <div class="frame">
+        <div class="frame__title-wrap">
+          <h1 class="frame__title">Infinite WebGL Scrolling Gallery</h1>
+          <p class="frame__tagline">Combined X/Y gestures with random colors</p>
+        </div>
+
+        <div class="frame__links">
+          <a href="https://tympanus.net/Tutorials/BreathingDots/">Previous Demo</a>
+          <a href="https://tympanus.net/codrops/?p=52634">Article</a>
+          <a href="https://github.com/lhbizarro/infinite-webl-gallery" target="_blank">GitHub</a>
+        </div>
+
+        <div class="frame__demos">
+          <a href="index.html" class="frame__demo">Demo 1</a>
+          <a href="index2.html" class="frame__demo">Demo 2</a>
+          <a href="index-combined.html" class="frame__demo frame__demo--current">Combined</a>
+        </div>
+      </div>
+
+      <div class="demo-combined">
+        <div class="demo-combined__gallery">
+          <!-- Generate 100 elements with different positions -->
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // Generate 100 random elements
+      const gallery = document.querySelector('.demo-combined__gallery');
+      for (let i = 0; i < 100; i++) {
+        const figure = document.createElement('figure');
+        figure.className = 'demo-combined__gallery__figure';
+        
+        // Position elements in an evenly spaced grid
+        const cols = 10;
+        const rows = 10;
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        
+        // Evenly spaced with 5px gaps
+        const elementWidth = 128;
+        const elementHeight = 192;
+        const gap = 5;
+        
+        const x = col * (elementWidth + gap);
+        const y = row * (elementHeight + gap);
+        
+        figure.style.position = 'absolute';
+        figure.style.left = x + 'px';
+        figure.style.top = y + 'px';
+        figure.style.width = '128px';
+        figure.style.height = '192px';
+        
+        // Create img element with transparent pixel (color will be generated in WebGL)
+        const img = document.createElement('img');
+        img.className = 'demo-combined__gallery__image';
+        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 transparent pixel
+        img.alt = `Element ${i + 1}`;
+        
+        figure.appendChild(img);
+        gallery.appendChild(figure);
+      }
+    </script>
+  </body>
+</html>

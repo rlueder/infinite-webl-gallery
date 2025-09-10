@@ -1,7 +1,8 @@
 import One from './demo-1'
 import Two from './demo-2'
+import Combined from './demo-combined'
 
-const demos = [One, Two]
+const demos = [One, Two, Combined]
 const demo = document.body.getAttribute('data-id')
 
 new demos[demo]()
